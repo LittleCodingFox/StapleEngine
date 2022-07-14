@@ -1,4 +1,6 @@
-﻿using GlmSharp;
+﻿using Artemis;
+using Artemis.Attributes;
+using GlmSharp;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -11,21 +13,20 @@ using System.Threading.Tasks;
 
 namespace Staple
 {
-    public class Transform : IEnumerable<Transform>
+    [ArtemisComponentPool(IsResizable = true)]
+    public class Transform : ComponentPoolable, IEnumerable<Transform>
     {
         private List<Transform> children = new List<Transform>();
-        private mat4 matrix = mat4.Identity;
+        internal mat4 matrix = mat4.Identity;
         private quat rotation = quat.Identity;
         private Vector3 position;
         private Vector3 scale = Vector3.one;
 
         public Transform parent { get; private set; }
 
-        public readonly WeakReference<Entity> entity;
-
-        public Transform(Entity owner)
+        public override void CleanUp()
         {
-            entity = new WeakReference<Entity>(owner);
+            SetParent(null);
         }
 
         internal mat4 Matrix
@@ -167,6 +168,11 @@ namespace Staple
         }
 
         public bool Changed { get; private set; } = false;
+
+        internal void MarkCleared()
+        {
+            Changed = false;
+        }
 
         public Transform Root
         {

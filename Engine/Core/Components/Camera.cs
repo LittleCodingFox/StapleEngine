@@ -1,4 +1,6 @@
-﻿using Bgfx;
+﻿using Artemis;
+using Artemis.Attributes;
+using Bgfx;
 using GlmSharp;
 using System;
 using System.Collections.Generic;
@@ -8,13 +10,18 @@ using System.Threading.Tasks;
 
 namespace Staple
 {
-    public class Camera
+    [ArtemisComponentPool(IsResizable = true)]
+    public class Camera : ComponentPoolable
     {
         public CameraClearMode clearMode = CameraClearMode.SolidColor;
 
         public CameraType cameraType = CameraType.Perspective;
 
         public float fov = 90;
+
+        public float zNear = 0.1f;
+
+        public float zFar = 100;
 
         public float orthoSize = 5;
 
@@ -24,7 +31,36 @@ namespace Staple
 
         public Color32 clearColor;
 
-        public void PrepareRender()
+        internal Transform ProjectionTransform()
+        {
+            var cameraMatrix = new Transform();
+
+            switch(cameraType)
+            {
+                case CameraType.Orthographic:
+
+                    {
+                        var computedViewport = new Vector4(viewport.x * AppPlayer.ScreenWidth, viewport.y * AppPlayer.ScreenHeight,
+                            viewport.z * AppPlayer.ScreenWidth, viewport.w * AppPlayer.ScreenHeight);
+
+                        cameraMatrix.matrix = mat4.Ortho(computedViewport.x, computedViewport.z, computedViewport.w, computedViewport.y);
+                    }
+
+                    break;
+
+                case CameraType.Perspective:
+
+                    cameraMatrix.matrix = mat4.PerspectiveFov(fov, AppPlayer.ScreenWidth, AppPlayer.ScreenHeight, zNear, zFar);
+
+                    break;
+            }
+
+            cameraMatrix.MarkCleared();
+
+            return cameraMatrix;
+        }
+
+        internal void PrepareRender()
         {
             switch(clearMode)
             {

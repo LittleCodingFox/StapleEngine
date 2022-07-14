@@ -250,7 +250,7 @@ namespace Staple
                 ResetRendering(hasFocus);
             }
 
-            Scene.current = new Scene();
+            SceneManager.instance.CreateScene();
 
             while (!Glfw.WindowShouldClose(window) && window.IsClosed == false)
             {
