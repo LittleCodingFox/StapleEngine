@@ -159,7 +159,7 @@ namespace Staple
                     var display = Native.GetX11Display();
                     var windowHandle = Native.GetX11Window(window);
 
-                    if (display == IntPtr.Zero || window == IntPtr.Zero)
+                    if (display == IntPtr.Zero || windowHandle == IntPtr.Zero)
                     {
                         display = Native.GetWaylandDisplay();
                         windowHandle = Native.GetWaylandWindow(window);

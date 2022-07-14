@@ -23,6 +23,13 @@ solution "Engine"
 		defines "_DEBUG"
 		optimize "Debug"
 		symbols "On"
+	filter "platforms:x86_64"
+		architecture "x86_64"
+	filter "system:macosx"
+		xcodebuildsettings {
+			["MACOSX_DEPLOYMENT_TARGET"] = "10.9",
+			["ALWAYS_SEARCH_USER_PATHS"] = "YES", -- This is the minimum version of macos we'll be able to run on
+		};
 
 	project "Core"
 		kind "SharedLib"
@@ -39,10 +46,21 @@ solution "Engine"
 		prebuildcommands {
 			"{COPYFILE} %{wks.location}/../Dependencies/build/" .. cc .. "/bin/x86_64/Release/*.dll %{wks.location}%{cfg.targetdir}"
 		}
+
+function setBxCompat()
+	filter "action:vs*"
+		includedirs { path.join("%{wks.location}/../Dependencies/", BX_DIR, "include/compat/msvc") }
+	filter { "system:windows", "action:gmake" }
+		includedirs { path.join("%{wks.location}/../Dependencies/", BX_DIR, "include/compat/mingw") }
+	filter { "system:macosx" }
+		includedirs { path.join("%{wks.location}/../Dependencies/", BX_DIR, "include/compat/osx") }
+		buildoptions { "-x objective-c++" }
+end
 	
 	project "Player"
 		kind "ConsoleApp"
 		language "C++"
+		cppdialect "C++20"
 		
 		targetdir "../bin/Player/%{cfg.buildcfg}"
 		objdir "../obj/Player/%{cfg.buildcfg}"
@@ -60,3 +78,24 @@ solution "Engine"
 			"Player/**.hpp",
 			"Player/**.cpp"
 		}
+
+		libdirs {
+			"%{wks.location}/../Dependencies/build/" .. cc .. "/bin/x86_64/%{cfg.buildcfg}"
+		}
+		
+		links {
+			"glfw",
+			"bgfx",
+			"bimg",
+			"bx"
+		}
+		
+		prebuildcommands {
+			"{COPYFILE} %{wks.location}/../Dependencies/build/" .. cc .. "/bin/x86_64/Release/*.dll %{wks.location}%{cfg.targetdir}"
+		}
+
+		filter "action:vs*"
+			defines "_CRT_SECURE_NO_WARNINGS"
+			buildoptions { "/Zc:__cplusplus" }
+
+		setBxCompat()

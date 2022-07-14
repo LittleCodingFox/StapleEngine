@@ -38,9 +38,9 @@ function setBxCompat()
 end
 	
 project "bgfx"
-	kind "SharedLib"
+	kind "StaticLib"
 	language "C++"
-	cppdialect "C++14"
+	cppdialect "C++20"
 	exceptionhandling "Off"
 	rtti "Off"
 	defines { "__STDC_FORMAT_MACROS" }
@@ -66,14 +66,13 @@ project "bgfx"
 	
 	links { "bx", "bimg" }
 	
-	defines { "BGFX_SHARED_LIB_BUILD" }
-	
 	filter "configurations:Debug"
 		defines { "BX_CONFIG_DEBUG=1" }
 	filter "configurations:Release"
 		defines { "BX_CONFIG_DEBUG=0" }
 	filter "action:vs*"
 		defines "_CRT_SECURE_NO_WARNINGS"
+		buildoptions { "/Zc:__cplusplus" }
 		excludes
 		{
 			path.join(BGFX_DIR, "src/glcontext_glx.cpp"),
@@ -89,7 +88,7 @@ project "bgfx"
 project "bimg"
 	kind "StaticLib"
 	language "C++"
-	cppdialect "C++14"
+	cppdialect "C++20"
 	exceptionhandling "Off"
 	rtti "Off"
 	files
@@ -112,12 +111,15 @@ project "bimg"
 		defines { "BX_CONFIG_DEBUG=1" }
 	filter "configurations:Release"
 		defines { "BX_CONFIG_DEBUG=0" }
+	filter "action:vs*"
+		defines "_CRT_SECURE_NO_WARNINGS"
+		buildoptions { "/Zc:__cplusplus" }
 	setBxCompat()
 
 project "bx"
 	kind "StaticLib"
 	language "C++"
-	cppdialect "C++14"
+	cppdialect "C++20"
 	exceptionhandling "Off"
 	rtti "Off"
 	defines "__STDC_FORMAT_MACROS"
@@ -138,14 +140,15 @@ project "bx"
 		path.join(BX_DIR, "include")
 	}
 	filter "action:vs*"
-	defines "_CRT_SECURE_NO_WARNINGS"
+		defines "_CRT_SECURE_NO_WARNINGS"
+		buildoptions { "/Zc:__cplusplus" }
 	filter "configurations:Debug"
 		defines { "BX_CONFIG_DEBUG=1" }
 	filter "configurations:Release"
 		defines { "BX_CONFIG_DEBUG=0" }
 
 	setBxCompat()
-		
+
 project "glfw"
 	kind "SharedLib"
 	language "C"
