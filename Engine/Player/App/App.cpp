@@ -22,9 +22,6 @@
 
 namespace Staple
 {
-    uint32_t screenWidth = 0;
-    uint32_t screenHeight = 0;
-
     PlayerSettings::PlayerSettings() : windowMode(WindowMode::Windowed), videoFlags(VideoFlags::Vsync),
         screenWidth(0), screenHeight(0), monitorIndex(0)
     {
@@ -187,8 +184,6 @@ namespace Staple
 
         bgfx::Init init;
 
-        memset(&init, 0, sizeof(bgfx::Init));
-
         init.platformData.ndt = NULL;
 
         RendererType rendererType = RendererType::OpenGL;
@@ -273,8 +268,6 @@ namespace Staple
 
         bgfx::setViewClear(0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x334455FF);
         bgfx::setViewRect(0, 0, 0, bgfx::BackbufferRatio::Equal);
-
-        printf("BGFX Renderer: %i", bgfx::getRendererType());
 
         bool hasFocus = glfwGetWindowAttrib(window, GLFW_FOCUSED) == GLFW_TRUE;
 
