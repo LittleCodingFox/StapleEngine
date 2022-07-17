@@ -1,7 +1,8 @@
 #include "App.hpp"
+#include "Rendering/BGFXRenderer/BGFXRenderer.hpp"
 #define GLFW_INCLUDE_NONE
 
-#if BX_PLATFORM_LINUX || BX_PLATFORM_BSD
+#if STAPLE_PLATFORM_LINUX
 #	if ENTRY_CONFIG_USE_WAYLAND
 #		include <wayland-egl.h>
 #		define GLFW_EXPOSE_NATIVE_WAYLAND
@@ -9,10 +10,10 @@
 #		define GLFW_EXPOSE_NATIVE_X11
 #		define GLFW_EXPOSE_NATIVE_GLX
 #	endif
-#elif BX_PLATFORM_OSX
+#elif STAPLE_PLATFORM_OSX
 #	define GLFW_EXPOSE_NATIVE_COCOA
 #	define GLFW_EXPOSE_NATIVE_NSGL
-#elif BX_PLATFORM_WINDOWS
+#elif STAPLE_PLATFORM_WINDOWS
 #	define GLFW_EXPOSE_NATIVE_WIN32
 #	define GLFW_EXPOSE_NATIVE_WGL
 #endif //
@@ -63,6 +64,8 @@ namespace Staple
     {
         playerSettings.screenWidth = 1024;
         playerSettings.screenHeight = 768;
+
+        renderer.reset(new BGFXRenderer());
     }
 
     uint32_t AppPlayer::ScreenWidth() const
@@ -75,56 +78,9 @@ namespace Staple
         return playerSettings.screenHeight;
     }
 
-    uint32_t ResetFlags(VideoFlags flags)
-    {
-        uint32_t outValue = BGFX_RESET_SRGB_BACKBUFFER;
-
-        if (HAS_FLAG(flags, VideoFlags::Vsync))
-        {
-            outValue |= BGFX_RESET_VSYNC;
-        }
-
-        if (HAS_FLAG(flags, VideoFlags::MsaaX2))
-        {
-            outValue |= BGFX_RESET_MSAA_X2;
-        }
-        else if (HAS_FLAG(flags, VideoFlags::MsaaX4))
-        {
-            outValue |= BGFX_RESET_MSAA_X4;
-        }
-        else if (HAS_FLAG(flags, VideoFlags::MsaaX8))
-        {
-            outValue |= BGFX_RESET_MSAA_X8;
-        }
-        else if (HAS_FLAG(flags, VideoFlags::MsaaX16))
-        {
-            outValue |= BGFX_RESET_MSAA_X16;
-        }
-
-        if (HAS_FLAG(flags, VideoFlags::HDR10))
-        {
-            outValue |= BGFX_RESET_HDR10;
-        }
-
-        if (HAS_FLAG(flags, VideoFlags::HiDpi))
-        {
-            outValue |= BGFX_RESET_HIDPI;
-        }
-
-        return outValue;
-    }
-
     void AppPlayer::ResetRendering(bool hasFocus)
     {
-        uint32_t flags = ResetFlags(playerSettings.videoFlags);
-
-        if (hasFocus == false && appSettings.runInBackground == false)
-        {
-            flags |= BGFX_RESET_SUSPEND;
-        }
-
-        bgfx::reset(ScreenWidth(), ScreenHeight(), flags, bgfx::TextureFormat::RGBA32U);
-        bgfx::setViewRect(0, 0, 0, bgfx::BackbufferRatio::Equal);
+        renderer->ResetRendering(playerSettings.videoFlags, hasFocus == false && appSettings.runInBackground == false);
     }
 
     void AppPlayer::Run()
@@ -180,94 +136,52 @@ namespace Staple
             return;
         }
 
-        bgfx::renderFrame();
-
-        bgfx::Init init;
-
-        init.platformData.ndt = NULL;
+        uint64_t monitorHandle = 0;
+        uint64_t windowHandle = 0;
 
         RendererType rendererType = RendererType::OpenGL;
 
-#if BX_PLATFORM_WINDOWS
+#if STAPLE_PLATFORM_WINDOWS
 
-        init.platformData.nwh = glfwGetWin32Window(window);
+        windowHandle = (uint64_t)glfwGetWin32Window(window);
 
         rendererType = appSettings.renderers[AppPlatform::Windows];
 
-#elif BX_PLATFORM_LINUX
+#elif STAPLE_PLATFORM_LINUX
 
-        init.platformData.ndt = glfwGetX11Display();
-        init.platformData.nwh = glfwGetX11Window(window);
+        monitorHandle = (uint64_t)glfwGetX11Display();
+        windowHandle = (uint64_t)glfwGetX11Window(window);
 
-        if (init.platformData.nwh == NULL)
+        if (windowHandle == 0)
         {
-            init.platformData.ndt = glfwGetWaylandDisplay();
-            init.platformData.nwh = glfwGetWaylandWindow(window);
+            monitorHandle = (uint64_t)glfwGetWaylandDisplay();
+            windowHandle = (uint64_t)glfwGetWaylandWindow(window);
         }
 
         rendererType = appSettings.renderers[AppPlatform.Linux];
 
-#elif BX_PLATFORM_OSX
+#elif STAPLE_PLATFORM_OSX
 
-        init.platformData.ndt = glfwGetCocoaMonitor(monitor);
-        init.platformData.nwh = glfwGetCocoaWindow(window);
+        monitorHandle = (uint64_t)glfwGetCocoaMonitor(monitor);
+        windowHandle = (uint64_t)glfwGetCocoaWindow(window);
 
         rendererType = appSettings.renderers[AppPlatform.Mac];
 #endif
 
         glfwGetFramebufferSize(window, &playerSettings.screenWidth, &playerSettings.screenHeight);
 
-        bgfx::RendererType::Enum initRenderer = bgfx::RendererType::Count;
-
-        switch (rendererType)
+        if (!renderer->Create(monitorHandle, windowHandle, rendererType, playerSettings.videoFlags,
+            playerSettings.screenWidth, playerSettings.screenHeight))
         {
-        case RendererType::Direct3D11:
+            renderer->Dispose();
+            renderer.reset();
 
-            initRenderer = bgfx::RendererType::Direct3D11;
-
-            break;
-
-        case RendererType::Direct3D12:
-
-            initRenderer = bgfx::RendererType::Direct3D12;
-
-            break;
-
-        case RendererType::Metal:
-
-            initRenderer = bgfx::RendererType::Metal;
-
-            break;
-
-        case RendererType::OpenGL:
-
-            initRenderer = bgfx::RendererType::OpenGL;
-
-            break;
-
-        case RendererType::Vulkan:
-
-            initRenderer = bgfx::RendererType::Vulkan;
-
-            break;
-        }
-
-        init.type = initRenderer;
-        init.resolution.width = playerSettings.screenWidth;
-        init.resolution.height = playerSettings.screenHeight;
-        init.resolution.reset = ResetFlags(playerSettings.videoFlags);
-
-        if (bgfx::init(init) == false)
-        {
             glfwDestroyWindow(window);
 
             glfwTerminate();
 
             return;
         }
-
-        bgfx::setViewClear(0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x334455FF);
-        bgfx::setViewRect(0, 0, 0, bgfx::BackbufferRatio::Equal);
 
         bool hasFocus = glfwGetWindowAttrib(window, GLFW_FOCUSED) == GLFW_TRUE;
 
@@ -290,7 +204,7 @@ namespace Staple
                 playerSettings.screenWidth = currentW;
                 playerSettings.screenHeight = currentH;
 
-                ResetRendering(hasFocus);
+                renderer->SetWindowSize(currentW, currentH);
             }
 
             bool focused = glfwGetWindowAttrib(window, GLFW_FOCUSED) == GLFW_TRUE;
@@ -307,12 +221,11 @@ namespace Staple
                 }
             }
 
-            bgfx::touch(0);
-
-            bgfx::frame();
+            renderer->FinishFrame();
         }
 
-        bgfx::shutdown();
+        renderer->Dispose();
+        renderer.reset();
 
         glfwTerminate();
     }
